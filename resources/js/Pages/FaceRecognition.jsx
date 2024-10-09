@@ -8,7 +8,6 @@ export default function FaceRecognition() {
 
     const [loading, setLoading] = useState(false);
     const [scanning, setScanning] = useState(false);
-    // const [dialogOpen, setDialogOpen] = useState(false);
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const intervalRef = useRef(null);
@@ -45,11 +44,7 @@ export default function FaceRecognition() {
         const runFaceRecognition = async () => {
             try {
                 // turn on camera
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: false
-                });
-                // get video ref from stream
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 videoRef.current.srcObject = stream;
                 // load models from public/models folder
                 await Promise.all([
@@ -60,31 +55,22 @@ export default function FaceRecognition() {
                 // load labeled images
                 const labeledFaceDescriptors = await loadLabeledImages();
                 if (labeledFaceDescriptors.length === 0) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'No valid images found',
-                        text: 'Please register your face first!',
-                        showConfirmButton: true
-                    });
+                    Swal.fire({ icon: 'error', title: 'No valid images found', text: 'Please register your face first!', showConfirmButton: true });
                     stopScanning();
+                    return;
                 }
                 const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5);
                 // start face recognition on an interval
                 intervalRef.current = setInterval(async () => {
                     // detect faces and landmarks
-                    let detections = await faceapi.detectAllFaces(videoRef.current)
-                        .withFaceLandmarks()
-                        .withFaceDescriptors();
-
+                    let detections = await faceapi.detectAllFaces(videoRef.current).withFaceLandmarks().withFaceDescriptors();
+                    if (detections.length === 0) return;
                     // ensure canvas follow video elements
                     const canvas = canvasRef.current;
                     canvas.width = videoRef.current.videoWidth;
                     canvas.height = videoRef.current.videoHeight;
 
-                    const displaySize = {
-                        width: videoRef.current.videoWidth,
-                        height: videoRef.current.videoHeight
-                    }
+                    const displaySize = { width: videoRef.current.videoWidth, height: videoRef.current.videoHeight }
 
                     faceapi.matchDimensions(canvas, displaySize);
                     // resize the detections to match the video size
@@ -97,12 +83,6 @@ export default function FaceRecognition() {
                     faceapi.draw.drawDetections(canvas, resizedDetections);
                     // draw the landmarks on the canvas
                     faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
-
-                    // check if any face is detected
-                    if (detections.length === 0) {
-                        // no face detected
-                        return;
-                    }
                     // process detection to find a match
                     for (const detection of detections) {
                         // get landmark from left and right eye
@@ -111,9 +91,6 @@ export default function FaceRecognition() {
                         // calculate left and right eye EAR
                         const leftEAR = calculateEAR(leftEye);
                         const rightEAR = calculateEAR(rightEye);
-                        // log the EAR values
-                        // console.log('Left EAR: ', leftEAR);
-                        // console.log('Right EAR: ', rightEAR);
                         // check left and right eye blink threshold
                         if (leftEAR < BLINK_THRESHOLD || rightEAR < BLINK_THRESHOLD) {
                             const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
@@ -135,11 +112,7 @@ export default function FaceRecognition() {
                                             imageAlt: 'Attendee Image', // Alternative text for the image
                                             text: 'Please enter your PIN to confirm',
                                             input: 'password',
-                                            inputValidator: (value) => {
-                                                if (!value) {
-                                                    return 'PIN is required';
-                                                }
-                                            },
+                                            inputValidator: (value) => value ? undefined : 'PIN is required',
                                             showCancelButton: true,
                                             confirmButtonText: 'Confirm',
                                             cancelButtonText: 'Cancel'
@@ -149,57 +122,29 @@ export default function FaceRecognition() {
                                                 const name = `${attendee_lastname}, ${attendee_firstname} ${attendee_middlename}`;
                                                 storeTimeInOut(employeeId, name);
                                                 storeFaceDataPoints(employeeId, leftEAR, rightEAR);
-                                                Swal.fire({
-                                                    icon: 'success',
-                                                    title: 'Success',
-                                                    text: 'PIN confirmed. You have successfully timed in/out.',
-                                                    showConfirmButton: true
-                                                }).then(() => {
-                                                    context.clearRect(0, 0, canvas.width, canvas.height);
-                                                });
+                                                Swal.fire({ icon: 'success', title: 'Success', text: 'PIN confirmed. You have successfully timed in/out.', showConfirmButton: true })
+                                                    .then(() => { context.clearRect(0, 0, canvas.width, canvas.height); });
                                             } else {
-                                                Swal.fire({
-                                                    icon: 'error',
-                                                    title: 'Error',
-                                                    text: 'Incorrect PIN. Please try again.',
-                                                    showConfirmButton: true
-                                                }).then(() => {
-                                                    promptForPin();
-                                                });
+                                                Swal.fire({ icon: 'error', title: 'Error', text: 'Incorrect PIN. Please try again.', showConfirmButton: true })
+                                                    .then(() => { promptForPin(); });
                                             }
                                         }
                                     }
                                     promptForPin();
                                 } catch (error) {
-                                    Swal.fire({
-                                        icon: 'error',
-                                        title: 'Error',
-                                        text: error.message || 'Error fetching employee details',
-                                        showConfirmButton: true
-                                    });
+                                    Swal.fire({ icon: 'error', title: 'Error', text: error.message || 'Error fetching employee details', showConfirmButton: true });
                                 }
                                 // exit the loop after handling the first valid detection
                                 break;
                             }
                         } else {
-                            toast.current.show({
-                                severity: 'error',
-                                summary: 'NOT MATCH FOUND',
-                                detail: 'Please register your face first or try to move closer to the camera.',
-                                life: 3000
-                            });
+                            toast.current.show({ severity: 'error', summary: 'NOT MATCH FOUND', detail: 'Please register your face first or try to move closer to the camera.', life: 3000 });
                             break;
                         }
                     }
                 }, 1000);
             } catch (error) {
-                console.error('Error during face recognition setup:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: `An error occured: ${error.message}`,
-                    showConfirmButton: true
-                });
+                Swal.fire({ icon: 'error', title: 'Error', text: `An error occured: ${error.message}`, showConfirmButton: true });
                 stopScanning();
             }
         }
@@ -224,19 +169,12 @@ export default function FaceRecognition() {
                     // fetch the image
                     const img = await faceapi.fetchImage(`/storage/images/${fileName}`);
                     // detect a single face and get the face descriptor
-                    const detections = await faceapi.detectSingleFace(img)
-                        .withFaceLandmarks()
-                        .withFaceDescriptor();
+                    const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
                     if (detections) {
                         return new faceapi.LabeledFaceDescriptors(fileName.replace('.jpg', ''), [detections.descriptor]);
                     }
                 } catch (error) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: `Error processing image ${fileName}: ${error.message}`,
-                        showConfirmButton: true
-                    });
+                    Swal.fire({ icon: 'error', title: 'Error', text: `Error processing image ${fileName}: ${error.message}`, showConfirmButton: true });
                     return null;
                 }
             })
@@ -257,36 +195,18 @@ export default function FaceRecognition() {
         const currentTime = new Date();
         const formattedTime = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
         try {
-            const response = await axios.post('/store-time-in-out', {
-                employee_id: employeeId,
-                employee_name: employeeName,
-                time_in_out: formattedTime
-            });
+            const response = await axios.post('/store-time-in-out', { employee_id: employeeId, employee_name: employeeName, time_in_out: formattedTime });
         } catch (error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: error.response?.data.message,
-                showConfirmButton: true
-            });
+            Swal.fire({ icon: 'error', title: 'Error', text: error.response?.data.message, showConfirmButton: true });
         }
     }
 
     const storeFaceDataPoints = async (employeeId, leftEAR, rightEAR) => {
         try {
-            const response = await axios.post('/store-facial-data-points', {
-                employee_id: employeeId,
-                leftEAR: leftEAR,
-                rightEAR: rightEAR
-            });
+            const response = await axios.post('/store-facial-data-points', { employee_id: employeeId, leftEAR: leftEAR, rightEAR: rightEAR });
             return response.data;
         } catch (error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: error.response?.data.message || 'Error storing face data points',
-                showConfirmButton: true
-            });
+            Swal.fire({ icon: 'error', title: 'Error', text: error.response?.data.message || 'Error storing face data points', showConfirmButton: true });
             return null;
         }
     }
@@ -296,12 +216,7 @@ export default function FaceRecognition() {
             const response = await axios.get(`/get-employee-details/${employeeId}`);
             return response.data;
         } catch (error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: error.response?.data.message || 'Error fetching employee name',
-                showConfirmButton: true
-            });
+            Swal.fire({ icon: 'error', title: 'Error', text: error.response?.data.message || 'Error fetching employee name', showConfirmButton: true });
             return null;
         }
     }

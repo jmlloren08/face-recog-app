@@ -5,6 +5,7 @@ import TextInput from '@/Components/TextInput';
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { Transition } from '@headlessui/react';
 import Swal from 'sweetalert2';
+import { useEffect } from 'react';
 
 export default function UpdateProfileInformation({ mustVerifyEmail, status, className = '' }) {
     const user = usePage().props.auth.user;
@@ -27,6 +28,14 @@ export default function UpdateProfileInformation({ mustVerifyEmail, status, clas
         e.preventDefault();
         patch(route('profile.update'));
     };
+
+    useEffect(() => {
+        recentlySuccessful && Swal.fire({ icon: 'success', title: 'Profile Updated', text: 'Your profile information has been updated.', showConfirmButton: true });
+    }, [recentlySuccessful]);
+
+    useEffect(() => {
+        Object.keys(errors).length > 0 && Swal.fire({ icon: 'error', title: 'Error', text: 'Something went wrong. Please try again.', showConfirmButton: true });
+    }, [errors]);
 
     return (
         <section className={className}>
@@ -238,23 +247,6 @@ export default function UpdateProfileInformation({ mustVerifyEmail, status, clas
 
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>Save</PrimaryButton>
-
-                    {recentlySuccessful ? (
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Profile Updated',
-                            text: 'Your profile information has been updated.',
-                            showConfirmButton: true
-                        })
-                    ) : (
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: 'Something went wrong. Please try again.',
-                            showConfirmButton: true
-                        })
-                    )}
-
                 </div>
             </form>
         </section >
